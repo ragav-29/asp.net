@@ -12,3 +12,6 @@ def main():
         print("Agent Started successfully.")
     except subprocess.CalledProcessError as e:
         print("Error starting agent :(", e)
+        
+if __name__=="__main__":
+    main()
