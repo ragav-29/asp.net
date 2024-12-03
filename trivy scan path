@@ -1,0 +1,16 @@
+
+$trivyPath = "C:\Trivy\trivy.exe"
+
+# Verify Trivy version to ensure it's accessible
+Write-Host "Trivy version: "
+& $trivyPath --version  # Using the call operator to execute the version command
+
+# Navigate to the repository directory
+cd "$(Build.SourcesDirectory)"
+
+# Run Trivy to scan all types of vulnerabilities (vuln, misconfig, secret, license)
+Write-Host "Running Trivy scan for all vulnerability types..."
+$scanResult = & $trivyPath fs --format json --output "$(Build.ArtifactStagingDirectory)\trivy-results.json" --scanners vuln,misconfig,secret,license .
+
+
+Write-Host "Trivy scan results have been saved to $(Build.ArtifactStagingDirectory)\trivy-results.json"
