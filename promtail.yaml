@@ -1,0 +1,37 @@
+server:
+  http_listen_port: 9088
+  grpc_listen_port: 0
+
+positions:
+  filename: C:/promtail/positions.yaml
+
+clients:
+  - url: http://127.0.0.1:3100/loki/api/v1/push
+
+scrape_configs:
+  # Scrape IIS Logs
+  - job_name: iis_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: iis
+          __path__: C:/inetpub/logs/LogFiles/W3SVC*/u_ex*.log
+
+  # Scrape MS SQL Server Error Logs
+  - job_name: sql_server_error_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: sql_server
+          __path__: C:/Program Files/Microsoft SQL Server/MSSQL*/MSSQLSERVER/MSSQL/Log/ERRORLOG*
+
+  # Scrape SQL Server Agent Logs
+  - job_name: sql_server_agent_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: sql_server_agent
+          __path__: C:/Program Files/Microsoft SQL Server/MSSQL*/MSSQLSERVER/MSSQL/Log/SQLAGENT.OUT
