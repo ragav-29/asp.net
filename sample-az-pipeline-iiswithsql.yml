@@ -1,0 +1,126 @@
+trigger:
+- none
+
+pool:
+  vmImage: 'Mayla_agent'
+
+variables:
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+  solution: '**/*.sln'
+  project: '**/*.csproj'
+
+  # Replace these variables to suit your application
+  projectName: 'WeatherService'
+  websiteName: 'WeatherService'
+  appPoolName: 'WeatherService'
+
+stages:
+- stage: 'Build'
+  displayName: 'Build'
+  jobs:
+    - job: 
+      steps:  
+        - task: DotNetCoreCLI@2
+          displayName: 'dotnet restore'
+          inputs:
+            command: 'restore'
+            projects: '*.sln'
+
+        - task: DotNetCoreCLI@2
+          displayName: Build
+          inputs:
+            command: 'build'
+            projects: '*.sln'
+            arguments: --configuration Release
+
+        - task: DotNetCoreCLI@2
+          displayName: Test
+          inputs:
+            command: test
+            projects: '*.sln'
+            arguments: '--configuration $(BuildConfiguration)'
+
+        - task: CopyFiles@2
+          displayName: Copy files to $(Build.ArtifactStagingDirectory)
+          inputs:
+            SourceFolder: $(System.DefaultWorkingDirectory)
+            Contents: "**/*.sql"
+            TargetFolder: $(Build.ArtifactStagingDirectory)
+          condition: succeededOrFailed()
+
+        - task: DotNetCoreCLI@2
+          displayName: 'Publish the project - $(buildConfiguration)'
+          inputs:
+            command: 'publish'
+            projects: '**/*.csproj'
+            publishWebProjects: false
+            arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
+            zipAfterPublish: true
+
+        - publish: '$(Build.ArtifactStagingDirectory)'
+          artifact: drop
+
+- stage: 'Dev'
+  displayName: 'Dev'
+  dependsOn: 'Build'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+    - deployment: Dev
+      displayName: Dev
+      environment: 
+        name: 'Dev'    
+        resourceType: VirtualMachine
+      variables:
+        - name: websitePhysicalPath
+          value: '%SystemDrive%\inetpub\wwwroot\$(websiteName)'
+
+      strategy:
+        runOnce:
+          deploy:
+            steps: 
+            # IIS Management Task (always runs)
+            - task: IISWebAppManagementOnMachineGroup@0
+              inputs:            
+                IISDeploymentType: 'IISWebsite'
+                ActionIISWebsite: 'CreateOrUpdateWebsite'
+                WebsiteName: '$(websiteName)'
+                WebsitePhysicalPath: '$(websitePhysicalPath)'
+                WebsitePhysicalPathAuth: 'WebsiteUserPassThrough'
+                CreateOrUpdateAppPoolForWebsite: true
+                AppPoolNameForWebsite: '$(appPoolName)'
+                DotNetVersionForWebsite: 'No Managed Code'
+                PipeLineModeForWebsite: 'Integrated'
+                AppPoolIdentityForWebsite: 'ApplicationPoolIdentity'
+                AddBinding: true
+                Bindings: |
+                  {
+                      bindings:[
+                          {
+                              "protocol":"http",
+                              "ipAddress":"",
+                              "hostname":"",
+                              "port":"80",
+                              "sslThumbprint":"",
+                              "sniFlag":false
+                          }
+                      ]
+                  }
+
+            # Only run SQL deployment if SQL files exist in the staging directory
+            - task: SqlDacpacDeploymentOnMachineGroup@0
+              condition: and(succeeded(), exists('$(Build.ArtifactStagingDirectory)/**/*.sql'))
+              inputs:
+                TaskType: 'sqlQuery'
+                SqlFile: '**/*.sql'
+                ServerName: 'localhost'
+                DatabaseName: 'DB-NAME'
+                AuthScheme: 'sqlServerAuthentication'
+                SqlUsername: 'sa'
+                SqlPassword: 'sa-password'
+
+            # IIS WebApp Deployment (always runs)
+            - task: IISWebAppDeploymentOnMachineGroup@0
+              inputs:
+                WebSiteName: '$(websiteName)'
+                Package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/$(projectName).zip'
