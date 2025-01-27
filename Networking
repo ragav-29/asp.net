@@ -1,0 +1,12 @@
+Address space usage in VNet
+what is different b/w subnet address space vs vnet address space?
+Can we hace subanet 1 and subnet 2 same address space
+each availability zone do we need to create VNET and Subnet?
+Vnet span across region? or regional resouce?
+/24 how many Ips and /32 how many Ips?
+what is diff b/w static and dynamic IP?
+azure reserve any ip address? or we can use all /24 in subnet?
+Public IP SKU Basic vs Standard?
+Service Tag usage in NSG?
+difference b/w S2S vs P2S in VPN
+RFC 1918 RFC 6598
